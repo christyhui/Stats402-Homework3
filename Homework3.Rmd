@@ -25,6 +25,7 @@ library(nnet)
 ```{r}
 # read in data and make every variable we work with the correct data type
 liver = read.csv("liver23.csv")
+liver = liver[(liver$hist_hypertens_don.x != "U") & (liver$coronary_angio_don.x != "U"), ]
 liver$tx_fail = ifelse(liver$tx_fail == 0, "Success", "Failure")
 liver$tx_fail = factor(liver$tx_fail, levels = c("Success", "Failure"))
 liver$hgt_cm_don_calc.x = as.numeric(liver$hgt_cm_don_calc.x)
@@ -43,7 +44,7 @@ table(liver$tx_fail)
 prop.table(table(liver$tx_fail))
 ```
 
-Around 24% of the data are failures, whereas around 76% are successes. While not ideal, this spread is not bad.
+Around 20% of the data are failures, whereas around 80% are successes. While not ideal, this spread is not bad.
 
 ```{r}
 # create table of values for categorical variables
@@ -52,7 +53,7 @@ table(liver$coronary_angio_don.x)
 prop.table(table(liver$coronary_angio_don.x))
 ```
 
-Around 80% of the data are "No." This may prove to be a challenge, as a large portion of the data is "No."
+Around 84% of the data are "No." This may prove to be a challenge, as a large portion of the data is "No."
 
 ```{r}
 # create table of values for categorical variables
@@ -60,7 +61,7 @@ table(liver$hist_hypertens_don.x)
 # show proportion as well
 prop.table(table(liver$hist_hypertens_don.x))
 ```
-Around 79% of the data are "No." This may prove to be a challenge, as a large portion of the data is "No."
+Around 81% of the data are "No." This, again, may prove to be a challenge, as a large portion of the data is "No."
 
 
 ```{r}
@@ -94,11 +95,8 @@ summary(liver_glm)
 cbind(Estimate = exp(coef(liver_glm)))
 ```
 
-Keeping all else constant, the odds of a kidney transplant failure is 1.170625*10^8 times more likely for donors where it was unknown whether or not they died from coronary heart disease than donors who did not die of coronary heart disease.
 
 Keeping all else constant, the odds of a kidney transplant failure is 51.03672% (1-4.896328e-01) less likely for donors who died from coronary heart disease than donors who did not die of coronary heart disease.
-
-Keeping all else constant, the odds of a kidney transplant failure is 1.869010*10^8 times more likely for donors where it was unknown whether or not they had a history of hypertension than donors who did not have a history of hypertension.
 
 Keeping all else constant, the odds of a kidney transplant failure is 3.745786 times more likely for donors who had a history of hypertension than donors who did not have a history of hypertension.
 
@@ -117,12 +115,10 @@ suppressWarnings(exp(confint(liver_glm))) # had to run suppress warning because 
 
 | Predictor              	| Odds            | 2.5%           	| 97.5%          	| P-Value 	|
 |------------------------	|---------------	|----------------	|----------------	|---------	|
-| Height                 	| 0.9737820     	| 0.9693146      	| 0.9782585      	| < 2e-16 	|
-| BMI                    	| 1.010130      	| 1.001431       	| 1.018855       	| 0.022   	|
-| Coronary Angio Unknown 	| 1.170625\*10^8 	| 1.333328-10^51 	| 2.729940\*10^52 	| 0.899   	|
-| Coronary Angio Yes     	| 0.4896328     	| 0.4243885      	| 0.5631302      	| < 2e-16 	|
-| Hypertension Unknown   	| 1.869010\*10^8 	| 5.202949\*10^21 	| 4.012661\*10^61 	| 0.951   	|
-| Hypertension Yes       	| 3.745786      	| 3.372805       	| 4.160086       	| < 2e-16 	|
+| Height                 	| 0.9737820     	| 0.9693146      	| 0.9782585      	| < 0.05  	|
+| BMI                    	| 1.0101302      	| 1.0014306     	| 1.0188554     	| 0.022   	|
+| Coronary Angio Yes     	| 0.4896328     	| 0.4243889      	| 0.5631298      	| < 0.05  	|
+| Hypertension Yes       	| 3.7457864      	| 3.3728072     	| 4.1600834     	| < 0.05  	|
 
 
 
@@ -141,7 +137,7 @@ Regarding the odds and confidence intervals, we only interpret the odds that are
 
 The null deviance shows how well our response is predicted by the model with just the intercept. The residual deviance, on the other hand, shows how well our response is predictors with the predictors in the model. The lower our scores, the better our models are.
 
-In this case, our null deviance is 14684 on 13221 degrees of freedom and our residual deviance is 11452 on 13215 degrees of freedom. Since our residual deviance is lower than our null deviance, we can say our model does better with the predictors than without the predictors.
+In this case, our null deviance is 12358  on 12452 degrees of freedom and our residual deviance is 11452  on 12448 degrees of freedom. Since our residual deviance is lower than our null deviance, we can say our model does better with the predictors than without the predictors.
 
 ### Part 9
 
@@ -184,7 +180,7 @@ liver_cvglm$results
 confusionMatrix(predict(liver_cvglm), liver$tx_fail)
 ```
 
-The accuracy is around 81%, which is quite good and much better than simply guessing whether or not a kidney transplant would fail or not (50%). The sensitivity is quite high, which indicates that our model is able to perform when guessing true positives. However, the model struggles with true negatives, due to a low specificity rate.
+The accuracy is around 81%, which is quite good and much better than simply guessing whether or not a kidney transplant would fail or not (50%). The sensitivity is quite high, which indicates that our model is able to perform when guessing true positives. However, the model struggles with true negatives, due to an extremely low specificity rate.
 
 ### Part 12
 

@@ -1,0 +1,535 @@
+---
+title: "Homework 3"
+author: "Christy Hui"
+date: "Due 12/07/2024"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+# read in libraries
+library(ggplot2)
+library(sjPlot)
+library(caret)
+library(effects)
+library(car)
+library(nnet)
+```
+
+## Problem 1
+
+```{r}
+# read in data and make every variable we work with the correct data type
+liver = read.csv("liver23.csv")
+liver$tx_fail = ifelse(liver$tx_fail == 0, "Success", "Failure")
+liver$tx_fail = factor(liver$tx_fail, levels = c("Success", "Failure"))
+liver$hgt_cm_don_calc.x = as.numeric(liver$hgt_cm_don_calc.x)
+liver$bmi_don_calc.x = as.numeric(liver$bmi_don_calc.x)
+liver$coronary_angio_don.x = as.factor(liver$coronary_angio_don.x)
+liver$hist_hypertens_don.x = as.factor(liver$hist_hypertens_don.x)
+liver$ethnicity_don = as.factor(liver$ethnicity_don)
+```
+
+### Part 1
+
+```{r}
+# create table of binary variable
+table(liver$tx_fail)
+# show proportion as well
+prop.table(table(liver$tx_fail))
+```
+
+Around 24% of the data are failures, whereas around 76% are successes. While not ideal, this spread is not bad.
+
+```{r}
+# create table of values for categorical variables
+table(liver$coronary_angio_don.x)
+# show proportion as well
+prop.table(table(liver$coronary_angio_don.x))
+```
+
+Around 80% of the data are "No." This may prove to be a challenge, as a large portion of the data is "No."
+
+```{r}
+# create table of values for categorical variables
+table(liver$hist_hypertens_don.x)
+# show proportion as well
+prop.table(table(liver$hist_hypertens_don.x))
+```
+Around 79% of the data are "No." This may prove to be a challenge, as a large portion of the data is "No."
+
+
+```{r}
+# create histogram of height values
+hist(liver$hgt_cm_don_calc.x, xlab = "Height of Donor", main = "Distribution of Donor Height", freq = FALSE)
+lines(density(liver$hgt_cm_don_calc.x), lwd = 2)
+```
+
+The distribution of height seems to be, mostly, normal, which is promising.
+
+```{r}
+# create histogram of BMI values
+hist(liver$bmi_don_calc.x, xlab = "BMI of Donor", main = "Distribution of Donor BMI", freq = FALSE, ylim = c(0, 0.10))
+lines(density(liver$bmi_don_calc.x), lwd = 2)
+```
+
+The distribution of BMI seems to be right skew. This is a bit expected. This isn't too big of a deal, as it is not extremely right skew.
+
+### Part 2
+
+```{r}
+# run logistic model to predict failure
+liver_glm = glm(tx_fail ~ coronary_angio_don.x + hist_hypertens_don.x + hgt_cm_don_calc.x + bmi_don_calc.x, data = liver, family = "binomial")
+summary(liver_glm)
+```
+
+### Part 3
+
+```{r}
+# exponentiate coefficients
+cbind(Estimate = exp(coef(liver_glm)))
+```
+
+Keeping all else constant, the odds of a kidney transplant failure is 1.170625*10^8 times more likely for donors where it was unknown whether or not they died from coronary heart disease than donors who did not die of coronary heart disease.
+
+Keeping all else constant, the odds of a kidney transplant failure is 51.03672% (1-4.896328e-01) less likely for donors who died from coronary heart disease than donors who did not die of coronary heart disease.
+
+Keeping all else constant, the odds of a kidney transplant failure is 1.869010*10^8 times more likely for donors where it was unknown whether or not they had a history of hypertension than donors who did not have a history of hypertension.
+
+Keeping all else constant, the odds of a kidney transplant failure is 3.745786 times more likely for donors who had a history of hypertension than donors who did not have a history of hypertension.
+
+Keeping all else constant, for one unit increase in the height of the donor, the odds of a kidney transplant failure decreases by 0.026218 (1-0.9737820) units.
+
+Keeping all else constant, for one unit increase in the BMI of the donor, the odds of a kidney transplant failure increases by 1.010130 units.
+
+### Part 4
+
+```{r}
+# exponentiate confidence intervals
+suppressWarnings(exp(confint(liver_glm))) # had to run suppress warning because there were too many numbers close to 0, which gave the warning
+```
+
+### Part 5
+
+| Predictor              	| Odds            | 2.5%           	| 97.5%          	| P-Value 	|
+|------------------------	|---------------	|----------------	|----------------	|---------	|
+| Height                 	| 0.9737820     	| 0.9693146      	| 0.9782585      	| < 2e-16 	|
+| BMI                    	| 1.010130      	| 1.001431       	| 1.018855       	| 0.022   	|
+| Coronary Angio Unknown 	| 1.170625\*10^8 	| 1.333328-10^51 	| 2.729940\*10^52 	| 0.899   	|
+| Coronary Angio Yes     	| 0.4896328     	| 0.4243885      	| 0.5631302      	| < 2e-16 	|
+| Hypertension Unknown   	| 1.869010\*10^8 	| 5.202949\*10^21 	| 4.012661\*10^61 	| 0.951   	|
+| Hypertension Yes       	| 3.745786      	| 3.372805       	| 4.160086       	| < 2e-16 	|
+
+
+
+### Part 6
+
+```{r}
+# draw plot of odds
+plot_model(liver_glm, p.val = "wald")
+```
+
+### Part 7
+
+Regarding the odds and confidence intervals, we only interpret the odds that are statistically significant. In this case, that would be the height, the state of having coronary heart disease, and having a history of hypertension. The odds for height and having coronary heart disease is less than 1.  This means that height and having coronary disease is negatively associated with the failure of kidney transplants (albeit height is very close to 1). This is further supported by the confidence interval being under 1. Having hypertension is positively associated with the failure of kidney transplants, as evidenced from a higher odds ratio and 95% confidence interval being higher than 1.
+
+### Part 8
+
+The null deviance shows how well our response is predicted by the model with just the intercept. The residual deviance, on the other hand, shows how well our response is predictors with the predictors in the model. The lower our scores, the better our models are.
+
+In this case, our null deviance is 14684 on 13221 degrees of freedom and our residual deviance is 11452 on 13215 degrees of freedom. Since our residual deviance is lower than our null deviance, we can say our model does better with the predictors than without the predictors.
+
+### Part 9
+
+```{r}
+# calculate pseudo r-squared by following the formula: 1-(residual deviance/null deviance)
+1-(liver_glm$deviance/liver_glm$null.deviance)
+```
+
+### Part 10
+
+```{r}
+# make predictions binary using a 0.50% probability boundary
+predictions = ifelse(predict(liver_glm) > 0.5, "Failure", "Success")
+predictions = factor(predictions, levels = c("Success", "Failure"))
+
+# craft confusion matrix
+confusionMatrix(liver$tx_fail, predictions)
+```
+
+### Part 11
+
+```{r}
+# carry out 5-fold cross validation
+set.seed(213)
+train_control = trainControl(method = "cv", number = 5, classProbs = TRUE)
+liver_cvglm = train(tx_fail ~ coronary_angio_don.x + hist_hypertens_don.x + hgt_cm_don_calc.x + bmi_don_calc.x,
+                    data = liver,
+                    method = "glm",
+                    family = binomial,
+                    trControl = train_control)
+```
+
+```{r}
+# report results
+liver_cvglm$results
+```
+
+```{r}
+# confusion matrix of glm model
+confusionMatrix(predict(liver_cvglm), liver$tx_fail)
+```
+
+The accuracy is around 81%, which is quite good and much better than simply guessing whether or not a kidney transplant would fail or not (50%). The sensitivity is quite high, which indicates that our model is able to perform when guessing true positives. However, the model struggles with true negatives, due to a low specificity rate.
+
+### Part 12
+
+```{r}
+# replicate plot figure from homework
+m1 = glm(tx_fail ~ hgt_cm_don_calc.x*ethnicity_don, data = liver, family="binomial")
+plot(allEffects(m1))
+```
+
+#### Part A
+
+What is the relationship between height and transplant failure among ethnic groups? How does the height of the donor and interaction of ethnicity influence the likelihood of a kidney transplant failure?
+
+#### Part B
+
+As the plot indicates, the patterns follow a very similar downward trend for ethnicity and transplant failure. Since both have similar negative slopes, we have a reason to believe that the relationship between donor height and transplant failure is consistent across both ethnic groups. As such, we have a reason to believe that there may be a nonexistent interaction effect. 
+
+
+### Part 13
+
+```{r}
+# create new model by adding interaction effect
+liver_glm2 = glm(tx_fail ~ coronary_angio_don.x + hist_hypertens_don.x + hgt_cm_don_calc.x + bmi_don_calc.x + hgt_cm_don_calc.x*ethnicity_don,
+                 data = liver,
+                 family = "binomial")
+summary(liver_glm2)
+```
+
+### Part 14
+
+```{r}
+# perform ANOVA to see if models are different
+anova(liver_glm, liver_glm2, test = "Chisq")
+```
+
+After running the ANOVA, we notice the p-value is greater than 0.05. As such, we fail to reject the null and state that we have reason to believe that the failure of a kidney transplant is not dependent on the combined effect of height and ethnicity. We recommend using the initial model.
+
+### Part 15
+
+```{r}
+library(ROCR)
+
+# create vector of predictions for ROC curve
+probpredictions = predict(liver_glm)
+pred_liver_glm <- prediction(probpredictions, liver$tx_fail)  
+
+# initialize roc curve and plot
+roc_curve <- performance(pred_liver_glm, "tpr","fpr")
+plot(roc_curve, colorize=TRUE, col="blue")
+abline(0, 1)
+```
+
+As shown in the above graphs, our model struggles to correctly classify true positives without a significant increase in false positives. This model seems to have low predictive power.
+
+## Problem 2
+
+```{r}
+# read in diabetic csv
+diabetic = read.csv("diabetic.csv")
+```
+
+### Part 1
+
+#### Part A
+
+```{r}
+# recode total risk factor variable
+diabetic$TotalRiskFactors = recode(diabetic$TotalRiskFactors, "
+                                   0 = 'None';
+                                   1 = 'One';
+                                   2 = '2 or More';
+                                   3 = '2 or More';
+                                   4 = '2 or More';
+                                   5 = '2 or More';
+                                   6 = '2 or More';
+                                   7 = '2 or More';
+                                   8 = '2 or More';
+                                   ")
+diabetic$TotalRiskFactors = factor(diabetic$TotalRiskFactors, levels = c("None", "One", "2 or More"))
+```
+
+#### Part B
+
+```{r}
+# recode diabetes variable
+diabetic$Diabetes.new = recode(diabetic$Diabetes.new, "
+                               0 = 'No';
+                               1 = 'Yes';
+                               ")
+diabetic$Diabetes.new = as.factor(diabetic$Diabetes.new)
+```
+
+#### Part C
+
+```{r}
+# recode smoking status variable
+diabetic$SmokingStatus_NISTCode = recode(diabetic$SmokingStatus_NISTCode, "
+                                         'FORMER' = 'FormerSmoker';
+                                         'TRUE' = 'Smoker';
+                                         'FALSE' = 'NonSmoker';
+                                         ")
+diabetic$SmokingStatus_NISTCode = factor(diabetic$SmokingStatus_NISTCode, levels = c("NonSmoker", "FormerSmoker", "Smoker"))
+```
+
+#### Part D
+
+```{r}
+# recode age variable
+diabetic$age.new = factor(diabetic$age.new, levels = c("low", "medium", "high"))
+```
+
+#### Part E
+
+```{r}
+# clean diabetic data set from NAs
+diabetic = diabetic[, c("age.new", "TotalRiskFactors", "Diabetes.new", "HypertensionDX", "SmokingStatus_NISTCode")]
+diabetic = na.omit(diabetic)
+```
+
+```{r}
+# make hypertensionDX factor
+diabetic$HypertensionDX = as.factor(diabetic$HypertensionDX)
+```
+
+```{r}
+# create contingency table of age.new variable
+table(diabetic$age.new)
+```
+
+```{r}
+# create contingency table of TotalRiskFactors variable
+table(diabetic$TotalRiskFactors)
+```
+
+```{r}
+# create contingency table of Diabetes.new variable
+table(diabetic$Diabetes.new)
+```
+
+```{r}
+# create contingency table of HypertensionDX variable
+table(diabetic$HypertensionDX)
+```
+
+```{r}
+# create contingency table of SmokingStatus_NISTCode variable
+table(diabetic$SmokingStatus_NISTCode)
+```
+
+### Part 2
+
+```{r}
+# run multinomial model
+diabetic_multi = multinom(age.new ~ TotalRiskFactors + Diabetes.new + HypertensionDX + SmokingStatus_NISTCode, data = diabetic)
+summary(diabetic_multi)
+```
+
+### Part 3
+
+#### Exponentiated (Odds)
+
+```{r}
+# exponentiate odds
+t(exp(coef(diabetic_multi)))
+```
+
+Keeping all else constant, the odds of a being medium age, compared to being low age, is 2.0547638 times more likely for people where they had one risk factor than people who did not have any risk factors.
+
+Keeping all else constant, the odds of a being high age, compared to being low age, is 2.6065176 times more likely for people where they had one risk factor than people who did not have any risk factors.
+
+Keeping all else constant, the odds of a being medium age, compared to being low age, is 1.9626257 times more likely for people where they had 2 or more risk factors than people who did not have any risk factors.
+
+Keeping all else constant, the odds of a being high age, compared to being low age, is 2.8965034 times more likely for people where they had 2 or more risk factors than people who did not have any risk factors.
+
+Keeping all else constant, the odds of a being medium age, compared to being low age, is 2.4225008 times more likely for people who have diabetes than people who do not have diabetes.
+
+Keeping all else constant, the odds of a being high age, compared to being low age, is 3.1965893 times more likely for people who have diabetes than people who do not have diabetes.
+
+Keeping all else constant, the odds of a being medium age, compared to being low age, is 3.8049162 times more likely for people who have a history of hypertension than people who do not have a history of hypertension.
+
+Keeping all else constant, the odds of a being high age, compared to being low age, is 7.8828954 times more likely for people who have a history of hypertension than people who do not have a history of hypertension.
+
+Keeping all else constant, the odds of a being medium age, compared to being low age, is 0.6773470 times more likely for people who have a history of being a former smoker than people who have never smoked before.
+
+Keeping all else constant, the odds of a being high age, compared to being low age, is 0.5487213 times more likely for people who have a history of being a former smoker than people who have never smoked before.
+
+Keeping all else constant, the odds of a being medium age, compared to being low age, is 0.8147539 times more likely for people who are smokers than people who have never smoked before.
+
+Keeping all else constant, the odds of a being high age, compared to being low age, is 0.2764985 times more likely for people who are smokers than people who have never smoked before.
+
+```{r}
+# exponentiate confidence intervals for medium age level
+exp(confint(diabetic_multi))[, , "medium"]
+```
+
+```{r}
+# exponentiate confidence intervals for high age level
+exp(confint(diabetic_multi))[, , "high"]
+```
+
+### Part 4
+
+#### Non Exponentiated Odds (Log of Odds)
+
+```{r}
+# find non exponentiated odds to fill in table
+t(coef(diabetic_multi))
+```
+
+#### Calculate P-Values
+
+```{r}
+z_scores = summary(diabetic_multi)$coefficients/summary(diabetic_multi)$standard.errors
+p_values = 2 * (1 - pnorm(abs(z_scores)))
+t(p_values)
+```
+
+#### Medium
+
+| Predictor                   	| Odds 	        | Log of Odds | 97.5%     	| P-Value      	|
+|-----------------------------	|-------------	|------------	|-----------	|--------------	|
+| One Risk vs None            	| 2.0547638   	| 0.7201609  	| 2.4751373 	| 3.375078e-14 	|
+| Two or More Risks vs None   	| 1.9626257   	| 0.6742832  	| 2.4970789 	| 4.079465e-08 	|
+| Has Diabetic (Yes vs No)    	| 2.4225008   	| 0.8848004  	| 3.2422532 	| 2.684713e-09 	|
+| HypertensionDX (Yes vs No)  	| 3.8049162   	| 1.3362940  	| 4.5918309 	| 0            	|
+| Former Smoker vs Non Smoker 	| 0.6773470   	| -0.3895716 	| 0.8098423 	| 1.921347e-05 	|
+| Smoker vs Non Smoker        	| 0.8147539   	| -0.2048692 	| 1.0327926 	| 9.040271e-02 	|
+
+#### High
+
+| Predictor                   	| Odds 	        | Log of Odds | 97.5%     	| P-Value      	|
+|-----------------------------	|-------------	|------------	|-----------	|--------------	|
+| One Risk vs None            	| 2.6065176   	| 0.9580151  	| 3.1701856 	| 0            	|
+| Two or More Risks vs None   	| 2.8965034   	| 1.0635043  	| 3.7031547 	| 0            	|
+| Has Diabetic (Yes vs No)    	| 3.1965893   	| 1.1620844  	| 4.2629421 	| 2.442491e-15 	|
+| HypertensionDX (Yes vs No)  	| 7.8828954   	| 2.0646953  	| 9.5433334 	| 0            	|
+| Former Smoker vs Non Smoker 	| 0.5487213   	| -0.6001646 	| 0.6586696 	| 1.188052e-10 	|
+| Smoker vs Non Smoker        	| 0.2764985   	| -1.2855500 	| 0.3652676 	| 0            	|
+
+### Part 5
+
+#### Part A
+
+Assuming a high risk factor is "Two or More Risks vs None:"
+
+- People who have a higher risk factor have 1.9626257 times the odds of being a medium age vs a low age compared to people who have no risk.
+
+- People who have a higher risk factor have 2.8965034 times the odds of being a high age vs a low age compared to people who have no risk.
+
+#### Part B
+
+- People who are diabetic have 2.4225008 times the odds of being a medium age vs a low age compared to people who are not diabetic.
+
+- People who are diabetic have 3.1965893 times the odds of being a high age vs a low age compared to people who are not diabetic.
+
+#### Part C
+
+- People who are smokers have 0.8147539 times the odds of being a medium age vs a low age compared to people who are non smokers.
+
+- People who are smokers have 0.2764985 times the odds of being a high age vs a low age compared to people who are non smokers.
+
+#### Part D
+
+The 95% confidence interval is over 1 for both medium and high ages regarding the odds of diabetic type II. Since the 95% confidence interval is greater than 1, having diabetes, compared to not having diabetes, increase the odds of being in the medium and high age groups.
+
+#### Part E
+
+The 95% confidence interval is under 1 for both medium and high ages regarding the odds of being a smoker. Since the 95% confidence interval is less than 1, being a smoker, compared to not being a smoker, recudes the odds of being in the medium and high age groups.
+
+
+### Part 6
+
+$$
+P(High \space Age \space Group) = \frac{1}{e^{-(-0.8435857 + 0.9580151*OneRisk + 1.0635043*TwoOrMoreRisks + 1.1620844*HasDiabeticYes + 2.0646953*HypertensionDXYes + -0.6001646*FormerSmoker + -1.2855500*Smoker)}}
+$$
+
+### Part 7
+
+```{r}
+plot_model(diabetic_multi)
+```
+
+### Part 8
+
+For the high age group, the total risk factors (one and 2 or more compared to having no risk factors), having diabetes (compared to not having diabetes), and having high hypertension (compared to not having a history of high hypertension) are positively associated with age (as shown by the odds ratios being higher than 1). On the other hand, being a former smoker and being a smoker (compared to not having a history of smoking) are negative associated.
+
+
+### Part 9
+
+```{r}
+predictions = predict(diabetic_multi, diabetic)
+confusionMatrix(predictions, diabetic$age.new)
+```
+
+### Part 10
+
+The model performs better than randomly guessing or guessing with no information (38.22%) due to the accuracy rate of 53.7%. This is further exemplified by our p-value of less than 0.05, which confirms that our model is statistically significant. The model guesses low and high true positives decently well, as shown by the relatively high (73.93% and 69.19%) sensitivity rates. The model also guesses low and high true negatives decently well, as shown by the relatively high (74.15% and 68.08%) specificity rates. It guesses true negatives for mediums very  well, as shown by the 87.81% specificity rate. However, the model performs terrible for true positives, as shown by the 18.22% sensitivity rating. All in all, the model performs decently, as shown by the accuracy rating (and further exemplified by the sensitivity and specificity rates). However, the model struggles to distinguish medium ages. This may be due to an overlap in features between the low and high age categories.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

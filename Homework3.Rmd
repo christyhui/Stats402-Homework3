@@ -10,8 +10,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
 ```{r}
 # read in libraries
 library(ggplot2)
